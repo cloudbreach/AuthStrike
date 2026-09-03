@@ -220,17 +220,6 @@ chmod +x deploy.sh
 
 The script asks for the Azure resource group and Web App name, packages the application, deploys it, and restarts the App Service.
 
-Set the App Service configuration values required by `.env.example`, including:
-
-```text
-FLASK_SECRET_KEY
-AUTHSTRIKE_ADMIN_USERNAME
-AUTHSTRIKE_ADMIN_PASSWORD_HASH
-AUTHSTRIKE_HTTPS=true
-STORE_RAW_TOKENS=false
-FLASK_DEBUG=false
-```
-
 Use HTTPS in production.
 
 After deployment, open:
