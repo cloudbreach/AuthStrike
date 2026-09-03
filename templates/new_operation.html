@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}New operation · AuthStrike{% endblock %}
+{% block breadcrumb %}New operation{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Operations / New</div>
+    <h1>Start a new operation</h1>
+    <p>Select the Microsoft client once, review the campaign setup, then intentionally generate the operation. Nothing is created by opening this page.</p>
+  </div>
+</div>
+
+{% if active_operation %}
+<section class="card active-operation-card">
+  <div class="card-header"><div><div class="card-title">Operation #{{ active_operation.id }} is currently active</div><div class="card-subtitle">Continue the existing campaign to avoid creating an unnecessary second device-code flow.</div></div><span class="badge badge-warning">POLLING</span></div>
+  <div class="card-body"><div class="stat-row"><div class="stat-box"><span>Client</span><strong>{{ active_operation.client_name }}</strong></div><div class="stat-box"><span>Generated</span><strong>{{ active_operation.generated_at }}</strong></div><div class="stat-box"><span>Expires</span><strong>{{ active_operation.expires_at }}</strong></div></div>
+  <div class="action-row" style="margin-top:14px"><a class="button button-primary" href="{{ url_for('d', operation_id=active_operation.id) }}">Continue operation #{{ active_operation.id }}</a><a class="button button-secondary" href="{{ url_for('history') }}">View history</a></div></div>
+</section>
+{% endif %}
+
+<form method="post" action="{{ url_for('d') }}" id="newOperationForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="creation_nonce" value="{{ creation_nonce }}">
+  <section class="card">
+    <div class="card-header"><div><div class="card-title">1. Select the client</div><div class="card-subtitle">The selected client is used for the new operation and its campaign links.</div></div></div>
+    <div class="card-body"><div class="client-choice-grid">
+      {% for profile in client_profiles %}
+      <label class="client-choice {% if profile.key == selected_profile %}selected{% endif %}"><input type="radio" name="client_profile" value="{{ profile.key }}" {% if profile.key == selected_profile %}checked{% endif %}><span class="client-choice-title">{{ profile.name }}</span><span class="client-choice-desc">{{ profile.description }}</span><code>{{ profile.id }}</code></label>
+      {% endfor %}
+    </div></div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div class="card-header"><div><div class="card-title">2. Campaign setup</div><div class="card-subtitle">These are the operator links you will send to an authorized test participant after generation.</div></div></div>
+    <div class="card-body">
+      <div class="template-preview-list">
+        <div><strong>DocuSign</strong><span>Document verification campaign</span></div>
+        <div><strong>Adobe</strong><span>Document review campaign</span></div>
+        <div><strong>Outlook</strong><span>Outlook-themed authentication campaign</span></div>
+      </div>
+      <div class="notice info" style="margin-top:14px"><strong>After generation:</strong> AuthStrike will create one device-code flow, generate the campaign URLs, and begin polling. You do not need to open the authentication page in the operator browser unless you are testing the operator-side fallback.</div>
+      <div class="preflight-list" style="margin-top:14px"><div><span>✓</span><strong>Client</strong><span id="selectedClientName">{{ selected_profile_name }}</span></div><div><span>✓</span><strong>Authentication</strong><span>Starts after generation</span></div><div><span>✓</span><strong>Polling</strong><span>Automatic until success, failure, or expiry</span></div></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div class="card-header"><div><div class="card-title">3. Generate</div><div class="card-subtitle">Creating an operation is the only action on this page that starts authentication.</div></div></div>
+    <div class="card-body">
+      {% if active_operation %}<label class="checkbox-row"><input type="checkbox" name="allow_parallel" value="1"> <span><strong>Run another operation in parallel</strong><small>Use only when you intentionally need a second simultaneous campaign.</small></span></label>{% endif %}
+      <div class="action-row" style="margin-top:14px"><button class="button button-primary" type="submit">Generate operation</button><a class="button button-secondary" href="{{ url_for('base') }}">Back to templates</a></div>
+    </div>
+  </section>
+</form>
+{% endblock %}
+{% block scripts %}<script>(function(){const form=document.getElementById('newOperationForm');const inputs=document.querySelectorAll('.client-choice input');const name=document.getElementById('selectedClientName');inputs.forEach(input=>input.addEventListener('change',()=>{document.querySelectorAll('.client-choice').forEach(x=>x.classList.remove('selected'));input.closest('.client-choice').classList.add('selected');name.textContent=input.closest('.client-choice').querySelector('.client-choice-title').textContent;}));if(form){form.addEventListener('submit',()=>{const button=form.querySelector('button[type="submit"]');if(button){button.disabled=true;button.textContent='Generating…';}});}})();</script>{% endblock %}

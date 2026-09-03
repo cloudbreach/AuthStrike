@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Templates · AuthStrike{% endblock %}
+{% block breadcrumb %}Templates{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Campaigns / Templates</div><h1>Campaign templates</h1><p>Choose a campaign template. Each launch intentionally starts one authentication flow using the configured client profile.</p></div><a class="button button-primary" href="{{ url_for('d') }}">＋ New operation</a></div>
+<div class="notice info" style="margin-bottom:14px"><strong>Operator note:</strong> configure the Client ID for each template before launching. Existing legacy template URLs remain available for compatibility.</div>
+<div class="template-grid">
+{% for item in templates %}
+<article class="card template-card"><div class="card-body"><div class="template-icon">{{ loop.index }}</div><span class="badge badge-info">{{ item.category }}</span><h2>{{ item.name }}</h2><p>{{ item.description }}</p><div class="template-meta"><span>Client</span><strong>{{ client_profiles|selectattr('key','equalto',item.profile)|map(attribute='name')|first or item.profile }}</strong></div><div class="template-path">{{ item.path }}</div><div class="action-row" style="margin-top:14px"><a class="button button-primary" href="{{ url_for(item.endpoint, client=item.profile) }}" target="_blank" rel="noopener noreferrer">Launch</a><a class="button button-secondary" href="{{ url_for('setup') }}">Configure</a></div></div></article>
+{% endfor %}
+</div>
+<div class="card" style="margin-top:14px"><div class="card-header"><div><div class="card-title">Template lineup</div><div class="card-subtitle">Keep the operator experience small and purposeful.</div></div></div><div class="card-body"><div class="workflow-grid"><div><span>01</span><strong>DocuSign</strong><p>Document verification flow.</p></div><div><span>02</span><strong>Adobe</strong><p>Document review/signing flow.</p></div><div><span>03</span><strong>Outlook</strong><p>Mailbox-oriented authentication flow.</p></div><div><span>04</span><strong>Results</strong><p>Review captures and mailbox capabilities in the operator workspace.</p></div></div></div></div>
+{% endblock %}

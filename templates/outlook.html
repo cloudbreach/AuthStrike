@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Outlook validation · AuthStrike{% endblock %}
+{% block breadcrumb %}Outlook validation{% endblock %}
+{% block head %}
+<style>
+.mail-workspace{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:520px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#09131f}
+.mail-folders{border-right:1px solid var(--border-soft);background:#0b1623;padding:12px}.mail-folders h3{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin:3px 8px 9px}.folder-btn{display:flex;justify-content:space-between;gap:8px;width:100%;padding:9px 10px;border:1px solid transparent;border-radius:8px;background:transparent;color:#b8c8d8;text-align:left;cursor:pointer;font-size:11px}.folder-btn:hover{background:#0f1d2b}.folder-btn.active{background:#102236;border-color:#255275;color:#e8f4fb}.folder-count{color:#6f839a;font:9px 'JetBrains Mono',monospace}.mail-main{min-width:0;display:grid;grid-template-columns:340px minmax(0,1fr)}.message-list{border-right:1px solid var(--border-soft);min-width:0}.message-list-header,.message-detail-header{padding:12px 14px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;gap:8px}.message-list-header strong,.message-detail-header strong{font-size:11px}.message-list-body{max-height:465px;overflow:auto}.message-item{display:block;width:100%;padding:11px 13px;border:0;border-bottom:1px solid #152235;background:transparent;color:inherit;text-align:left;cursor:pointer}.message-item:hover{background:#0d1b29}.message-item.active{background:#0f2234;box-shadow:inset 2px 0 0 #38bdf8}.message-item.unread .message-subject{font-weight:700;color:#e6f0f8}.message-meta{display:flex;justify-content:space-between;gap:8px;color:#657990;font-size:9px;margin-bottom:5px}.message-sender{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.message-subject{font-size:11px;color:#c1d0de;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.message-preview{font-size:10px;line-height:1.4;color:#667a91;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:4px}.message-detail{min-width:0}.message-detail-body{padding:16px;max-height:465px;overflow:auto}.mail-message-subject{font-size:17px;font-weight:700;line-height:1.35;color:#e8f1f7;margin-bottom:8px}.mail-recipient-line{font-size:10px;color:#71869b;margin-bottom:12px;line-height:1.5}.mail-body{font-size:12px;line-height:1.65;color:#becbd8;white-space:pre-wrap;overflow-wrap:anywhere}.mail-empty{display:grid;place-items:center;min-height:300px;padding:30px;text-align:center;color:#60758c}.compose-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.compose-grid .full{grid-column:1/-1}@media(max-width:1050px){.mail-workspace{grid-template-columns:190px 1fr}.mail-main{grid-template-columns:300px 1fr}}@media(max-width:760px){.mail-workspace{grid-template-columns:1fr}.mail-folders{border-right:0;border-bottom:1px solid var(--border-soft);display:flex;gap:6px;overflow:auto}.mail-folders h3{display:none}.folder-btn{min-width:max-content}.mail-main{grid-template-columns:1fr}.message-list{border-right:0;border-bottom:1px solid var(--border-soft)}.message-list-body{max-height:300px}.message-detail-body{max-height:none}.compose-grid{grid-template-columns:1fr}.compose-grid .full{grid-column:auto}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Identity / Outlook</div>
+    <h1>Outlook validation</h1>
+    <p>Validate a captured token and, where the token has the necessary Microsoft Graph permissions, inspect and interact with the mailbox directly from AuthStrike.</p>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-header"><div><div class="card-title">Select a successful operation</div><div class="card-subtitle">Tokens stay server-side. Select an operation and AuthStrike loads the current token from its MSAL cache.</div></div></div>
+  <div class="card-body">
+    {% if message %}<div class="notice {% if message_type == 'success' %}success{% else %}error{% endif %}" style="margin-bottom:14px">{{ message }}</div>{% endif %}
+    {% if successful_operations %}
+    <div class="form-field">
+      <label for="operationSelector">Operation</label>
+      <select class="select" id="operationSelector">
+        <option value="">Select a completed operation…</option>
+        {% for item in successful_operations %}
+        <option value="{{ item.id }}" {% if item.id == selected_operation_id %}selected{% endif %}>#{{ item.id }} · {{ item.username }} · {{ item.client_name }} · {{ item.completed_at }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% else %}<div class="notice info">No active successful access tokens are currently available.</div>{% endif %}
+
+    <div id="authStatePanel" class="split-grid" style="margin-top:14px">
+      <div class="stat-box"><span>Graph token</span><strong id="graphTokenState">Select an operation</strong></div>
+      <div class="stat-box"><span>Account</span><strong id="accountState">Select an operation</strong></div>
+      <div class="stat-box"><span>Client</span><strong id="clientState">Select an operation</strong></div>
+      <div class="stat-box"><span>Token state</span><strong id="tokenExpiryState">Select an operation</strong></div>
+    </div>
+    <div id="authStateMessage" class="notice info" style="margin-top:12px">Select an operation to begin.</div>
+
+    <div class="action-row" style="margin-top:12px">
+      <button type="button" class="button button-primary" id="validateTokenButton" disabled>Validate token</button>
+      <button type="button" class="button button-secondary" id="mailboxTestButton" disabled>Test mailbox access</button>
+      <button type="button" class="button button-secondary" id="loadMailboxButton" disabled>Open mailbox</button>
+    </div>
+    <div id="mailboxTestResult" class="notice info" style="display:none;margin-top:12px"></div>
+    <div class="page-footer-note">Outlook validation and mailbox actions use the selected operation server-side; the raw token is not placed in the URL or stored in browser local storage.</div>
+  </div>
+</section>
+
+<section class="card" id="mailboxCard" style="margin-top:14px;display:none">
+  <div class="card-header">
+    <div><div class="card-title">Mailbox</div><div class="card-subtitle" id="mailboxSubtitle">Graph-backed mailbox access</div></div>
+    <div class="action-row"><button type="button" class="button button-secondary button-small" id="composeButton">Compose</button><button type="button" class="button button-secondary button-small" id="refreshMailboxButton">Refresh</button></div>
+  </div>
+  <div class="card-body" style="padding:0">
+    <div class="mail-workspace">
+      <aside class="mail-folders" id="folderList"><h3>Folders</h3><div class="empty-state" style="padding:14px;font-size:10px">Loading…</div></aside>
+      <div class="mail-main">
+        <section class="message-list">
+          <div class="message-list-header"><strong id="messageListTitle">Inbox</strong><span class="table-secondary" id="messageListCount"></span></div>
+          <div class="message-list-body" id="messageList"><div class="empty-state"><strong>Select a folder</strong><span>Messages will appear here.</span></div></div>
+        </section>
+        <section class="message-detail">
+          <div class="message-detail-header"><strong id="messageDetailTitle">Message</strong><div class="action-row"><button type="button" class="button button-secondary button-small" id="replyButton" disabled>Reply</button></div></div>
+          <div class="message-detail-body" id="messageDetail"><div class="mail-empty">Select a message to inspect it.</div></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="composeCard" style="margin-top:14px;display:none">
+  <div class="card-header"><div><div class="card-title">Compose email</div><div class="card-subtitle">Send through Microsoft Graph using the selected operation.</div></div></div>
+  <div class="card-body">
+    <form id="composeForm">
+      <div class="compose-grid">
+        <div class="form-field"><label for="composeTo">To</label><input class="input" id="composeTo" type="email" placeholder="recipient@example.com" required></div>
+        <div class="form-field"><label for="composeCc">CC</label><input class="input" id="composeCc" type="email" placeholder="Optional"></div>
+        <div class="form-field full"><label for="composeSubject">Subject</label><input class="input" id="composeSubject" required></div>
+        <div class="form-field full"><label for="composeBody">Message</label><textarea class="textarea" id="composeBody" rows="9" required></textarea></div>
+      </div>
+      <div class="action-row" style="margin-top:12px"><button class="button button-primary" type="submit" id="sendButton">Send email</button><button class="button button-secondary" type="button" id="cancelComposeButton">Cancel</button></div>
+      <div id="composeResult" class="notice info" style="display:none;margin-top:12px"></div>
+    </form>
+  </div>
+</section>
+
+<section class="card" id="replyCard" style="margin-top:14px;display:none">
+  <div class="card-header"><div><div class="card-title">Reply</div><div class="card-subtitle" id="replySubtitle"></div></div></div>
+  <div class="card-body">
+    <textarea class="textarea" id="replyBody" rows="7" placeholder="Write your reply…"></textarea>
+    <div class="action-row" style="margin-top:12px"><button class="button button-primary" type="button" id="sendReplyButton">Send reply</button><button class="button button-secondary" type="button" id="cancelReplyButton">Cancel</button></div>
+    <div id="replyResult" class="notice info" style="display:none;margin-top:12px"></div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  const selector=document.getElementById('operationSelector');
+  const csrf=document.querySelector('input[name="csrf_token"]')?.value||'{{ csrf_token }}';
+  const graphState=document.getElementById('graphTokenState');
+  const accountState=document.getElementById('accountState');
+  const clientState=document.getElementById('clientState');
+  const expiryState=document.getElementById('tokenExpiryState');
+  const stateMessage=document.getElementById('authStateMessage');
+  const validateBtn=document.getElementById('validateTokenButton');
+  const mailboxTestBtn=document.getElementById('mailboxTestButton');
+  const openMailboxBtn=document.getElementById('loadMailboxButton');
+  const mailboxCard=document.getElementById('mailboxCard');
+  const mailboxTestResult=document.getElementById('mailboxTestResult');
+  const folderList=document.getElementById('folderList');
+  const messageList=document.getElementById('messageList');
+  const messageDetail=document.getElementById('messageDetail');
+  const messageListTitle=document.getElementById('messageListTitle');
+  const messageListCount=document.getElementById('messageListCount');
+  const messageDetailTitle=document.getElementById('messageDetailTitle');
+  const replyBtn=document.getElementById('replyButton');
+  let operationId=''; let currentFolder='inbox'; let currentMessage=null;
+
+  function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+  async function api(url, options={}){const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});let d={};try{d=await r.json()}catch(_){}if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);return d;}
+  function reset(){operationId='';graphState.textContent='Select an operation';accountState.textContent='Select an operation';clientState.textContent='Select an operation';expiryState.textContent='Select an operation';stateMessage.className='notice info';stateMessage.textContent='Select an operation to begin.';validateBtn.disabled=true;mailboxTestBtn.disabled=true;openMailboxBtn.disabled=true;mailboxCard.style.display='none';currentMessage=null;replyBtn.disabled=true;}
+  function hideCards(){document.getElementById('composeCard').style.display='none';document.getElementById('replyCard').style.display='none';}
+  async function loadOperation(id){
+    hideCards(); mailboxCard.style.display='none'; currentMessage=null; replyBtn.disabled=true;
+    if(!id){reset();return}
+    operationId=id; graphState.textContent='Checking…';accountState.textContent='Loading…';clientState.textContent='Loading…';expiryState.textContent='Checking…';stateMessage.className='notice info';stateMessage.textContent='Loading the selected operation…';validateBtn.disabled=true;mailboxTestBtn.disabled=true;openMailboxBtn.disabled=true;
+    try{
+      const d=await api('/api/operation/'+encodeURIComponent(id)+'/outlook-context');
+      graphState.textContent=d.graph_available?'Available':'Unavailable'; accountState.textContent=d.username||'Unknown'; clientState.textContent=d.client_name||'Unknown';
+      const exp=d.expires_in?`${Math.ceil(Number(d.expires_in)/60)} min`:'Active'; expiryState.textContent=exp;
+      stateMessage.className='notice success';stateMessage.textContent='Operation loaded. Validate the token or open the mailbox.';
+      validateBtn.disabled=!d.graph_available; mailboxTestBtn.disabled=!d.graph_available; openMailboxBtn.disabled=!d.graph_available;
+    }catch(e){graphState.textContent='Unavailable';stateMessage.className='notice error';stateMessage.textContent=e.message;validateBtn.disabled=true;mailboxTestBtn.disabled=true;openMailboxBtn.disabled=true;}
+  }
+  async function validate(){
+    if(!operationId)return; validateBtn.disabled=true;validateBtn.textContent='Validating…';
+    try{const d=await api('/api/outlook/validate-operation',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({operation_id:Number(operationId)})});stateMessage.className='notice success';stateMessage.textContent='✓ Token is valid for Microsoft Graph. '+(d.account||'');accountState.textContent=d.account||accountState.textContent;}
+    catch(e){stateMessage.className='notice error';stateMessage.textContent='Token validation failed: '+e.message;}
+    finally{validateBtn.disabled=false;validateBtn.textContent='Validate token';}
+  }
+  async function mailboxTest(){
+    if(!operationId)return; mailboxTestBtn.disabled=true;mailboxTestBtn.textContent='Testing…';mailboxTestResult.style.display='block';mailboxTestResult.className='notice info';mailboxTestResult.textContent='Checking mailbox access…';
+    try{const d=await api('/api/outlook/mailbox-test-operation',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({operation_id:Number(operationId)})});mailboxTestResult.className='notice success';mailboxTestResult.textContent='✓ Mailbox access verified through Microsoft Graph · '+(d.folder?.displayName||'Inbox');openMailboxBtn.disabled=false;}
+    catch(e){mailboxTestResult.className='notice error';mailboxTestResult.textContent='Mailbox access is not available: '+e.message;}
+    finally{mailboxTestBtn.disabled=false;mailboxTestBtn.textContent='Test mailbox access';}
+  }
+  async function loadFolders(){
+    folderList.innerHTML='<div class="empty-state" style="padding:14px;font-size:10px">Loading…</div>';
+    try{const d=await api('/api/outlook/folders?operation_id='+encodeURIComponent(operationId));folderList.innerHTML='<h3>Folders</h3>';const preferred=['inbox','sentitems','drafts','deleteditems','archive','junkemail'];const values=d.value||[];values.sort((a,b)=>{const ai=preferred.indexOf(String(a.displayName||'').toLowerCase().replaceAll(' ',''));const bi=preferred.indexOf(String(b.displayName||'').toLowerCase().replaceAll(' ',''));return (ai<0?99:ai)-(bi<0?99:bi)||String(a.displayName).localeCompare(String(b.displayName));});values.forEach(f=>{const b=document.createElement('button');b.className='folder-btn'+((f.id==='inbox'||String(f.displayName).toLowerCase()==='inbox')?' active':'');b.dataset.id=f.id;b.dataset.name=f.displayName;b.innerHTML='<span>'+esc(f.displayName)+'</span><span class="folder-count">'+esc(f.unreadItemCount??f.totalItemCount??'')+'</span>';b.addEventListener('click',()=>{document.querySelectorAll('.folder-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');loadMessages(f.id,f.displayName);});folderList.appendChild(b);});
+      const inbox=values.find(f=>String(f.displayName).toLowerCase()==='inbox')||values[0]; if(inbox) {currentFolder=inbox.id; loadMessages(inbox.id,inbox.displayName);}
+    }catch(e){folderList.innerHTML='<div class="notice error" style="margin:10px">'+esc(e.message)+'</div>';}
+  }
+  async function loadMessages(folderId,name){
+    currentFolder=folderId; messageListTitle.textContent=name||'Messages';messageListCount.textContent='';messageList.innerHTML='<div class="empty-state">Loading messages…</div>';messageDetail.innerHTML='<div class="mail-empty">Select a message to inspect it.</div>';currentMessage=null;replyBtn.disabled=true;
+    try{const d=await api('/api/outlook/messages?operation_id='+encodeURIComponent(operationId)+'&folder_id='+encodeURIComponent(folderId));const values=d.value||[];messageListCount.textContent=values.length+' shown';if(!values.length){messageList.innerHTML='<div class="empty-state"><strong>No messages</strong><span>This folder is empty or inaccessible.</span></div>';return;}messageList.innerHTML='';values.forEach(m=>{const b=document.createElement('button');b.className='message-item'+(!m.isRead?' unread':'');const sender=m.from?.emailAddress?.address||m.from?.emailAddress?.name||'Unknown sender';b.innerHTML='<div class="message-meta"><span class="message-sender">'+esc(sender)+'</span><span>'+esc((m.receivedDateTime||'').replace('T',' ').replace('Z',''))+'</span></div><div class="message-subject">'+esc(m.subject||'(no subject)')+'</div><div class="message-preview">'+esc(m.bodyPreview||'')+'</div>';b.addEventListener('click',()=>{document.querySelectorAll('.message-item').forEach(x=>x.classList.remove('active'));b.classList.add('active');loadMessage(m.id);});messageList.appendChild(b);});}
+    catch(e){messageList.innerHTML='<div class="notice error" style="margin:10px">'+esc(e.message)+'</div>';}
+  }
+  async function loadMessage(id){
+    messageDetail.innerHTML='<div class="mail-empty">Loading message…</div>';replyBtn.disabled=true;
+    try{const m=await api('/api/outlook/message?operation_id='+encodeURIComponent(operationId)+'&message_id='+encodeURIComponent(id));currentMessage=m;messageDetailTitle.textContent=m.subject||'Message';const sender=m.from?.emailAddress?.address||m.from?.emailAddress?.name||'Unknown sender';const tos=(m.toRecipients||[]).map(x=>x.emailAddress?.address||x.emailAddress?.name).filter(Boolean).join(', ');messageDetail.innerHTML='<div class="mail-message-subject">'+esc(m.subject||'(no subject)')+'</div><div class="mail-recipient-line">From: '+esc(sender)+'<br>To: '+esc(tos||'—')+'<br>Received: '+esc(m.receivedDateTime||'—')+'</div><div class="mail-body">'+esc(m.bodyText||m.bodyPreview||'')+'</div>';replyBtn.disabled=false;}
+    catch(e){messageDetail.innerHTML='<div class="notice error" style="margin:10px">'+esc(e.message)+'</div>';}
+  }
+  function showResult(el,msg,ok){el.style.display='block';el.className='notice '+(ok?'success':'error');el.textContent=msg;}
+  document.getElementById('composeButton').addEventListener('click',()=>{document.getElementById('composeCard').style.display='block';document.getElementById('composeCard').scrollIntoView({behavior:'smooth',block:'start'});});
+  document.getElementById('cancelComposeButton').addEventListener('click',()=>{document.getElementById('composeCard').style.display='none';});
+  document.getElementById('refreshMailboxButton').addEventListener('click',()=>loadFolders());
+  document.getElementById('composeForm').addEventListener('submit',async e=>{e.preventDefault();const btn=document.getElementById('sendButton'),out=document.getElementById('composeResult');btn.disabled=true;btn.textContent='Sending…';try{const d=await api('/api/outlook/send',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({operation_id:Number(operationId),to:document.getElementById('composeTo').value.split(',').map(s=>s.trim()).filter(Boolean),cc:document.getElementById('composeCc').value.split(',').map(s=>s.trim()).filter(Boolean),subject:document.getElementById('composeSubject').value,body:document.getElementById('composeBody').value})});showResult(out,'✓ '+d.message,true);e.target.reset();}catch(err){showResult(out,err.message,false)}finally{btn.disabled=false;btn.textContent='Send email';}});
+  replyBtn.addEventListener('click',()=>{if(!currentMessage)return;document.getElementById('replySubtitle').textContent='Replying to '+(currentMessage.from?.emailAddress?.address||'sender');document.getElementById('replyCard').style.display='block';document.getElementById('replyCard').scrollIntoView({behavior:'smooth',block:'start'});});
+  document.getElementById('cancelReplyButton').addEventListener('click',()=>document.getElementById('replyCard').style.display='none');
+  document.getElementById('sendReplyButton').addEventListener('click',async()=>{if(!currentMessage)return;const btn=document.getElementById('sendReplyButton'),out=document.getElementById('replyResult');const body=document.getElementById('replyBody').value.trim();if(!body){showResult(out,'Reply body is required.',false);return}btn.disabled=true;btn.textContent='Sending…';try{const d=await api('/api/outlook/reply',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({operation_id:Number(operationId),message_id:currentMessage.id,body})});showResult(out,'✓ '+d.message,true);document.getElementById('replyBody').value='';}catch(err){showResult(out,err.message,false)}finally{btn.disabled=false;btn.textContent='Send reply';}});
+  selector?.addEventListener('change',()=>loadOperation(selector.value));
+  validateBtn.addEventListener('click',validate); mailboxTestBtn.addEventListener('click',mailboxTest);openMailboxBtn.addEventListener('click',async()=>{if(!operationId)return;mailboxCard.style.display='block';stateMessage.className='notice success';stateMessage.textContent='Mailbox workspace opened. Folder and message requests use Microsoft Graph with the selected operation.';mailboxCard.scrollIntoView({behavior:'smooth',block:'start'});await loadFolders();});
+  {% if selected_operation_id %}loadOperation('{{ selected_operation_id }}');{% endif %}
+})();
+</script>
+{% endblock %}

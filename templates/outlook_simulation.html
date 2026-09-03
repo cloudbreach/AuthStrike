@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WorkMail · Authentication</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='public-simulation.css') }}">
+</head>
+<body class="simulation-page outlook-page">
+  <main class="simulation-card outlook-card">
+    <header class="outlook-brand" aria-label="WorkMail">
+      <div class="outlook-mark" aria-hidden="true">W</div>
+      <div>
+        <strong>WorkMail</strong>
+        <span>WorkCloud 365</span>
+      </div>
+    </header>
+
+    <h1 class="outlook-title">Authentication required</h1>
+    <p class="outlook-copy">Complete the WorkCloud sign-in step to continue.</p>
+
+    <div class="outlook-divider"></div>
+
+    <div class="outlook-label">Device verification code</div>
+    <div id="verificationCode" class="outlook-code">{{ user_code }}</div>
+
+    <div class="outlook-actions">
+      <button type="button" class="outlook-secondary" id="copyButton">Copy code</button>
+      <a id="continueButton" class="outlook-primary" href="{{ verification_uri }}">Continue to Microsoft</a>
+    </div>
+
+    <div class="outlook-expiry">Code expires in <span id="countdown">--:--</span></div>
+
+    <ol class="outlook-steps">
+      <li><span>1</span><div>Open the WorkCloud sign-in page.</div></li>
+      <li><span>2</span><div>Enter the verification code shown above.</div></li>
+      <li><span>3</span><div>Complete the authentication flow.</div></li>
+    </ol>
+
+    <footer class="outlook-footer">
+      <span>Operation #{{ request_id }}</span>
+      <span aria-hidden="true">·</span>
+      <a href="https://outlook.office.com/" target="_blank" rel="noopener noreferrer">Outlook</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://www.microsoft.com/en-us/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
+    </footer>
+  </main>
+
+<script>
+(() => {
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.readOnly = true;
+    area.setAttribute('aria-hidden', 'true');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    area.setSelectionRange(0, area.value.length);
+    const ok = document.execCommand('copy');
+    area.remove();
+    if (!ok) throw new Error('copy failed');
+  }
+
+  function openAuthPopup(event) {
+    event.preventDefault();
+    const url = event.currentTarget.getAttribute('href');
+    if (!url || url === '#') return;
+    const width = 520, height = 700;
+    const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
+    const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
+    const features = `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+    // Open a blank named popup synchronously from the user click, then navigate it.
+    // This avoids browsers treating the authentication URL as a normal new-tab navigation.
+    const popup = window.open('about:blank', 'MicrosoftDeviceAuth', features);
+    if (!popup) {
+      // Do not navigate the campaign page away if the browser blocks popups.
+      // Keep the link available for a manual right-click/open action.
+      continueButton.setAttribute('aria-label', 'Popup blocked. Open Microsoft authentication manually.');
+      return;
+    }
+    try {
+      popup.location.href = url;
+      popup.focus();
+    } catch (_) {}
+  }
+
+  const continueButton = document.getElementById('continueButton');
+  const copyButton = document.getElementById('copyButton');
+  continueButton.addEventListener('click', openAuthPopup);
+  const countdown = document.getElementById('countdown');
+  const code = document.getElementById('verificationCode').textContent.trim();
+  let remaining = Number({{ expires_in|int|tojson }});
+
+  copyButton.addEventListener('click', async () => {
+    try {
+      await copyText(code);
+      const previous = copyButton.textContent;
+      copyButton.textContent = 'Copied';
+      setTimeout(() => { copyButton.textContent = previous; }, 1400);
+    } catch (error) {
+      const previous = copyButton.textContent;
+      copyButton.textContent = 'Copy failed';
+      setTimeout(() => { copyButton.textContent = previous; }, 1400);
+    }
+  });
+
+  function tick() {
+    if (remaining <= 0) {
+      countdown.textContent = 'Expired';
+      continueButton.classList.add('disabled');
+      continueButton.setAttribute('aria-disabled', 'true');
+      continueButton.removeAttribute('href');
+      copyButton.disabled = true;
+      copyButton.classList.add('disabled');
+      return false;
+    }
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    countdown.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    remaining -= 1;
+    return true;
+  }
+
+  tick();
+  const timer = setInterval(() => {
+    if (!tick()) clearInterval(timer);
+  }, 1000);
+})();
+</script>
+</body>
+</html>

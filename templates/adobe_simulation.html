@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocuReader · Document review</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='public-simulation.css') }}">
+</head>
+<body class="simulation-page adobe-page">
+<main class="simulation-card adobe-card">
+  <header class="adobe-brand">
+    <div class="adobe-mark">D</div>
+    <div><strong>DocuReader</strong><span>Document review</span></div>
+  </header>
+
+  <section class="adobe-document">
+    <div class="adobe-pdf">PDF</div>
+    <div><strong>Document ready for review</strong><span>Confidential document</span></div>
+  </section>
+
+  <h1 class="adobe-title">Document ready for review</h1>
+  <p class="adobe-copy">A document has been shared with you for review. Use the WorkCloud sign-in flow to continue.</p>
+
+  <div class="adobe-code-label">Verification code</div>
+  <div id="verificationCode" class="adobe-code">{{ user_code }}</div>
+
+  <div class="adobe-actions">
+    <button type="button" class="adobe-secondary" id="copyButton">Copy code</button>
+    <a id="continueButton" class="adobe-primary" href="{{ verification_uri }}" rel="noopener noreferrer">Continue to Microsoft</a>
+  </div>
+
+  <div class="adobe-expiry">Code expires in <span id="countdown">--:--</span></div>
+
+  <ol class="adobe-steps">
+    <li><span>1</span>Open the WorkCloud sign-in page.</li>
+    <li><span>2</span>Enter the verification code shown above.</li>
+    <li><span>3</span>Complete the authentication flow.</li>
+  </ol>
+
+  <footer>DocuReader · Document review</footer>
+</main>
+<script>
+(() => {
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    const area = document.createElement('textarea');
+    area.value = text; area.readOnly = true; area.style.position = 'fixed'; area.style.opacity = '0';
+    document.body.appendChild(area); area.select(); area.setSelectionRange(0, area.value.length);
+    const ok = document.execCommand('copy'); area.remove(); if (!ok) throw new Error('copy failed');
+  }
+  function openAuthPopup(event) {
+    event.preventDefault();
+    const url = event.currentTarget.getAttribute('href');
+    if (!url || url === '#') return;
+    const width = 520, height = 700;
+    const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
+    const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
+    const features = `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+    const popup = window.open(url, 'MicrosoftDeviceAuth', features);
+    if (!popup) {
+      window.location.href = url;
+      return;
+    }
+    try { popup.focus(); } catch (_) {}
+  }
+
+  const continueButton = document.getElementById('continueButton');
+  continueButton.addEventListener('click', openAuthPopup);
+
+  const copyButton = document.getElementById('copyButton');
+  copyButton.addEventListener('click', async () => {
+    try {
+      await copyText(document.getElementById('verificationCode').textContent.trim());
+      const old = copyButton.textContent; copyButton.textContent = 'Copied';
+      setTimeout(() => copyButton.textContent = old, 1400);
+    } catch (error) {
+      const old = copyButton.textContent; copyButton.textContent = 'Copy failed';
+      setTimeout(() => copyButton.textContent = old, 1400);
+    }
+  });
+  let remaining = Number({{ expires_in|int }});
+  const countdown = document.getElementById('countdown');
+  function tick() {
+    if (remaining <= 0) {
+      countdown.textContent = 'Expired';
+      continueButton.classList.add('disabled');
+      continueButton.setAttribute('aria-disabled', 'true');
+      continueButton.removeAttribute('href');
+      copyButton.disabled = true;
+      copyButton.classList.add('disabled');
+      return false;
+    }
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    countdown.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    remaining -= 1;
+    return true;
+  }
+  tick();
+  const timer = setInterval(() => { if (!tick()) clearInterval(timer); }, 1000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SignFlow</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='public-simulation.css') }}">
+</head>
+<body>
+<main class="simulation-card">
+  <div class="brand-row">
+    <div class="workcloud-logo" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="plus">+</div><div class="signflow-logo" aria-hidden="true">S</div><div class="brand-name">SignFlow for WorkCloud</div>
+  </div>
+  <h1 class="title">Verify your identity to view the document</h1>
+  <p class="subtitle">This document is protected by SignFlow. Sign in with your Microsoft account to access it securely.</p>
+  <div class="divider"></div>
+  <div class="label">Your verification code</div>
+  <div class="code-box" id="verificationCode">{{ user_code }}</div>
+  <button class="copy-btn" type="button" id="copyButton">Copy code</button>
+  <a class="signin-btn" id="continueButton" href="{{ verification_uri }}" rel="noopener noreferrer">
+    <span class="lock">🔒</span>Sign in with this code
+  </a>
+  <div class="timer">Code expires in <span id="countdown">--:--</span></div>
+  <div class="footer-note">Complete this device authentication flow using the authorized test account.</div>
+  <div class="footer"><a href="https://account.microsoft.com/account" target="_blank" rel="noopener noreferrer">Microsoft account</a> · <a href="https://www.microsoft.com/en-us/privacy" target="_blank" rel="noopener noreferrer">Privacy</a></div>
+</main>
+<script>
+(function(){
+  async function copyText(t){
+    if(navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+    const a=document.createElement('textarea'); a.value=t; a.setAttribute('readonly',''); a.style.position='fixed'; a.style.opacity='0';
+    document.body.appendChild(a); a.select(); a.setSelectionRange(0,a.value.length); const ok=document.execCommand('copy'); a.remove();
+    if(!ok) throw new Error('copy failed');
+  }
+  function openAuthPopup(e){
+    e.preventDefault();
+    const url=e.currentTarget.getAttribute('href');
+    if(!url || url === '#') return;
+    const width=520, height=700;
+    const left=Math.max(0, Math.round((screen.availWidth-width)/2));
+    const top=Math.max(0, Math.round((screen.availHeight-height)/2));
+    const features=`popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+    const win=window.open(url,'MicrosoftDeviceAuth',features);
+    if(!win) window.location.href=url;
+    else { try{win.focus();}catch(_){} }
+  }
+  const copyButton=document.getElementById('copyButton');
+  copyButton.addEventListener('click',async()=>{
+    try{await copyText(document.getElementById('verificationCode').textContent.trim());const old=copyButton.textContent;copyButton.textContent='Copied!';setTimeout(()=>copyButton.textContent=old,1400)}
+    catch(e){copyButton.textContent='Copy failed';setTimeout(()=>copyButton.textContent='Copy code',1400)}
+  });
+  const continueButton=document.getElementById('continueButton');
+  continueButton.addEventListener('click',openAuthPopup);
+  let timeLeft={{ expires_in|int }}; const countdown=document.getElementById('countdown');
+  function tick(){const m=Math.floor(timeLeft/60),s=timeLeft%60;countdown.textContent=m+':'+String(s).padStart(2,'0');if(timeLeft<=0){countdown.textContent='Expired';continueButton.classList.add('disabled');continueButton.setAttribute('aria-disabled','true');continueButton.setAttribute('tabindex','-1');copyButton.disabled=true;copyButton.classList.add('disabled');return false}timeLeft--;return true;}
+  tick(); const timer=setInterval(()=>{if(!tick())clearInterval(timer)},1000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Operation #{{ operation.id }} · AuthStrike{% endblock %}
+{% block breadcrumb %}Operation #{{ operation.id }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Operations / Campaign</div>
+    <h1>Operation #{{ operation.id }}</h1>
+    <p>This is the control page for the current device-authentication campaign. Nothing else is generated unless you explicitly start another operation.</p>
+  </div>
+  <div class="action-row">
+    <a class="button button-secondary" href="{{ url_for('history') }}">History</a>
+    <a class="button button-primary" href="{{ url_for('d') }}">＋ New operation</a>
+  </div>
+</div>
+
+<div class="stepper">
+  <div class="step done"><span class="step-index">1</span><span class="step-label">Configure</span></div>
+  <div class="step done"><span class="step-index">2</span><span class="step-label">Generate</span></div>
+  <div class="step {% if operation.status == 'POLLING' %}active{% elif operation.status in ['SUCCESS','FAILED','EXPIRED','INTERRUPTED'] %}done{% endif %}" id="stepAuth"><span class="step-index">3</span><span class="step-label">Authenticate</span></div>
+  <div class="step {% if operation.status in ['SUCCESS','FAILED','EXPIRED','INTERRUPTED'] %}active{% endif %}" id="stepResult"><span class="step-index">4</span><span class="step-label">Result</span></div>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Device authentication</div>
+      <div class="card-subtitle">{{ operation.client_name or operation.client_id }}</div>
+    </div>
+    <span id="operationStatus" class="badge {% if operation.status == 'SUCCESS' %}badge-success{% elif operation.status in ['FAILED','EXPIRED','INTERRUPTED'] %}badge-error{% else %}badge-warning{% endif %}"><span class="status-dot" style="background:{% if operation.status == 'SUCCESS' %}var(--green){% elif operation.status in ['FAILED','EXPIRED','INTERRUPTED'] %}var(--red){% else %}var(--amber){% endif %}"></span>{{ operation.status }}</span>
+  </div>
+  <div class="card-body">
+    <div id="successNotice" class="notice success" style="display:{% if operation.status == 'SUCCESS' %}block{% else %}none{% endif %};margin-bottom:14px">Authentication completed. A token is available to inspect now.</div>
+    <div id="errorNotice" class="notice error" style="display:{% if operation.status in ['FAILED','EXPIRED','INTERRUPTED'] %}block{% else %}none{% endif %};margin-bottom:14px">{{ operation.error or ('The operation expired before authentication completed.' if operation.status == 'EXPIRED' else 'Authentication could not be completed.') }}</div>
+
+    <div class="campaign-focus-grid" style="margin-top:0">
+      <div>
+        <div class="card campaign-primary-card" style="box-shadow:none;background:#0b1522">
+          <div class="card-header"><div><div class="card-title">Campaign links</div><div class="card-subtitle">Send one of these links to the authorized test participant. The operation page does not need to be sent.</div></div></div>
+          <div class="card-body">
+            <div class="template-url-list">
+              {% set cp = operation.client_profile or 'broker' %}
+              {% set links = [
+                ('DocuSign', url_for('e', client=cp, _external=True)),
+                ('Adobe', url_for('adobe_simulation', client=cp, _external=True)),
+                ('Outlook', url_for('outlook_simulation', client=cp, _external=True))
+              ] %}
+              {% for label, link in links %}
+              <div class="template-url-row"><div><strong>{{ label }}</strong><code id="url-{{ loop.index }}">{{ link }}</code></div><button class="button button-ghost button-small" type="button" data-copy="#url-{{ loop.index }}">Copy URL</button></div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="card" style="box-shadow:none;background:#0b1522;margin-top:10px">
+          <div class="card-body">
+            <div class="metric-label">What happens next?</div>
+            <ol class="operator-steps">
+              <li><strong>Choose an authorized test participant</strong> for this exercise.</li>
+              <li><strong>Send the campaign URL</strong> using your approved lab channel.</li>
+              <li><strong>The participant follows the authentication instructions</strong> in the campaign.</li>
+              <li><strong>Stay on this page</strong>; AuthStrike polls automatically and alerts you when the operation completes.</li>
+            </ol>
+            <div id="pollingMessage" class="notice info" style="margin-top:12px;{% if operation.status != 'POLLING' %}display:none{% endif %}"><span class="status-dot online"></span> Waiting for the authentication result. Last checked <span id="lastChecked">just now</span>.</div>
+            <div id="completedActions" class="action-row" style="margin-top:12px;{% if operation.status != 'SUCCESS' %}display:none{% endif %}"><a class="button button-primary" href="{{ url_for('t', operation_id=operation.id) }}">View token</a><a class="button button-secondary" href="{{ url_for('me', operation_id=operation.id) }}">View account</a><a class="button button-secondary" href="{{ url_for('outlook_page', operation_id=operation.id) }}">Outlook validation</a></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="stat-row" style="margin:0">
+          <div class="stat-box"><span>Client</span><strong>{{ operation.client_name or '—' }}</strong></div>
+          <div class="stat-box"><span>Generated</span><strong>{{ operation.generated_at }}</strong></div>
+          <div class="stat-box"><span>Expires</span><strong>{{ operation.expires_at }}</strong></div>
+        </div>
+        <details class="history-details" style="margin-top:10px">
+          <summary>Device authentication details</summary>
+          <div class="card" style="margin-top:10px;box-shadow:none;background:#0b1522"><div class="card-body" style="text-align:center"><div class="metric-label">User code</div><div id="userCode" class="copy-value">{{ operation.user_code }}</div><div class="action-row" style="justify-content:center"><button class="button button-secondary" type="button" data-copy="#userCode">Copy code</button><a class="button button-secondary" href="{{ operation.verification_uri or '#' }}" target="_blank" rel="noopener noreferrer">Open authentication</a></div><div class="page-footer-note">Fallback operator view only. Your primary campaign flow is the URL above.</div></div></div>
+        </details>
+      </div>
+    </div>
+</section>
+
+<section class="card" style="margin-top:14px">
+  <div class="card-header"><div><div class="card-title">Operation timeline</div><div class="card-subtitle">This operation only.</div></div></div>
+  <div class="card-body">
+    <div class="timeline-mini">
+      <div><span>01</span><strong>Generated</strong><small>{{ operation.generated_at }}</small></div>
+      <div><span>02</span><strong>Polling started</strong><small>Automatic</small></div>
+      <div id="timelineResult" style="opacity:{% if operation.status == 'POLLING' %}.45{% else %}1{% endif %}"><span>03</span><strong>Authentication result</strong><small id="timelineResultText">{{ operation.completed_at or ('Waiting…' if operation.status == 'POLLING' else operation.status) }}</small></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  const operationId = {{ operation.id }};
+  let timer = null;
+  async function checkStatus(){
+    try {
+      const res = await fetch('{{ url_for("operation_status", entry_id=operation.id) }}', {headers:{'Accept':'application/json'}, cache:'no-store'});
+      if(!res.ok) return;
+      const data = await res.json();
+      const badge = document.getElementById('operationStatus');
+      const status = data.status || 'POLLING';
+      const terminalError = ['FAILED','EXPIRED','INTERRUPTED'].includes(status);
+      badge.innerHTML = '<span class="status-dot" style="background:' + (status === 'SUCCESS' ? 'var(--green)' : terminalError ? 'var(--red)' : 'var(--amber)') + '"></span> ' + status;
+      badge.className = 'badge ' + (status === 'SUCCESS' ? 'badge-success' : terminalError ? 'badge-error' : 'badge-warning');
+      if(status !== 'POLLING'){
+        document.getElementById('pollingMessage').style.display='none';
+        document.getElementById('timelineResult').style.opacity='1';
+        document.getElementById('timelineResultText').textContent=data.completed_at || status;
+        if(status === 'SUCCESS'){
+          document.getElementById('successNotice').style.display='block';
+          document.getElementById('completedActions').style.display='flex';
+          document.getElementById('stepAuth').classList.remove('active');
+          document.getElementById('stepAuth').classList.add('done');
+          document.getElementById('stepResult').classList.add('active');
+        } else {
+          document.getElementById('errorNotice').textContent=data.error || (status === 'EXPIRED' ? 'The operation expired before authentication completed.' : status === 'INTERRUPTED' ? 'Polling stopped because the application was restarted.' : 'Authentication failed.');
+          document.getElementById('errorNotice').style.display='block';
+        }
+        clearInterval(timer);
+      } else {
+        document.getElementById('lastChecked').textContent = new Date().toLocaleTimeString();
+      }
+    } catch(e) {}
+  }
+  {% if operation.status == 'POLLING' %}
+  timer = setInterval(checkStatus, 4000);
+  checkStatus();
+  {% endif %}
+})();
+</script>
+{% endblock %}

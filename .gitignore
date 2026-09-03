@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+instance/
+request_counter.json
+devicecode_history.json
+token_history.json
+token_cache.bin
+*.log
+blog.md
+deployment.zip
+runtime/

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Token refresh · AuthStrike{% endblock %}
+{% block breadcrumb %}Token refresh{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Identity / Token refresh</div><h1>Token refresh</h1><p>Select a completed operation, choose a target client, and ask MSAL to silently acquire a new access token. AuthStrike never exposes refresh-token material.</p></div></div>
+
+<form method="post" action="{{ url_for('r') }}" id="refreshForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<section class="card">
+  <div class="card-header"><div><div class="card-title">1. Source operation</div><div class="card-subtitle">Only successful operations with an active access token are shown.</div></div></div>
+  <div class="card-body"><div class="form-field"><label for="operation_id">Operation</label><select class="select" id="operation_id" name="operation_id" required><option value="">Select a successful operation…</option>{% for item in successful_operations %}<option value="{{ item.id }}" {% if item.id == operation_id %}selected{% endif %}>#{{ item.id }} · {{ item.username }} · {{ item.client_name }} · {{ item.completed_at }}</option>{% endfor %}</select></div></div>
+</section>
+
+<section class="card" style="margin-top:14px">
+  <div class="card-header"><div><div class="card-title">2. Target client</div><div class="card-subtitle">Click anywhere on a client card to select it. Cross-client refresh is attempted only for known FOCI family clients and when family-token metadata is present in the selected MSAL cache. AuthStrike never displays or copies raw refresh-token material.</div></div></div>
+  <div class="card-body">
+    <div class="client-choice-grid compact" id="clientChoices">
+    {% for profile in client_profiles %}
+      <label class="client-choice {% if profile.key == selected_target %}selected{% endif %}" for="target-{{ profile.key }}">
+        <input id="target-{{ profile.key }}" type="radio" name="target_client" value="{{ profile.key }}" {% if profile.key == selected_target %}checked{% endif %} required>
+        <span class="client-choice-title">{{ profile.name }}</span>
+        <span class="client-choice-desc">{{ profile.description }}</span>
+        <div class="client-choice-meta"><code>{{ profile.id }}</code>{% if profile.foci is true %}<span class="badge badge-success">FOCI family candidate</span>{% elif profile.foci is false %}<span class="badge badge-muted">Non-FOCI reference</span>{% else %}<span class="badge badge-info">Classification not asserted</span>{% endif %}</div>
+      </label>
+    {% endfor %}
+    </div>
+    <div class="refresh-resource-section">
+      <div class="metric-label">Target resource</div>
+      <div class="resource-choice-grid">
+      {% for resource in resource_profiles %}
+        <label class="resource-choice {% if resource.key == selected_resource %}selected{% endif %}" for="resource-{{ resource.key }}">
+          <input id="resource-{{ resource.key }}" type="radio" name="target_resource" value="{{ resource.key }}" {% if resource.key == selected_resource %}checked{% endif %}>
+          <span><strong>{{ resource.name }}</strong><small>{{ resource.description }}</small></span>
+        </label>
+      {% endfor %}
+      </div>
+    </div>
+    <label class="checkbox-row" style="margin-top:14px"><input type="checkbox" name="force_refresh" value="1" checked><span><strong>Force fresh acquisition</strong><small>Ask MSAL to bypass the currently cached access token and silently renew when possible.</small></span></label>
+    <div class="action-row" style="margin-top:14px"><button class="button button-primary" type="submit">Refresh access token</button><a class="button button-secondary" href="{{ url_for('t', operation_id=operation_id) if operation_id else url_for('t') }}">Back to tokens</a></div>
+  </div>
+</section>
+</form>
+
+<section class="card" style="margin-top:14px"><div class="card-header"><div><div class="card-title">Result</div><div class="card-subtitle">{{ data.message }}</div></div><span class="badge {% if data.status == 'success' %}badge-success{% elif data.status == 'error' %}badge-error{% else %}badge-info{% endif %}">{{ data.status|upper }}</span></div><div class="card-body">
+{% if data.status == 'success' %}
+  <div class="stat-row"><div class="stat-box"><span>Source client</span><strong>{{ data.source_client_name }}</strong></div><div class="stat-box"><span>Target client</span><strong>{{ data.target_client_name }}</strong></div><div class="stat-box"><span>Target resource</span><strong>{{ data.target_resource_name or '—' }}</strong></div><div class="stat-box"><span>Expires in</span><strong>{{ data.expires_in or '—' }} seconds</strong></div><div class="stat-box"><span>Acquisition</span><strong>{{ data.refresh_mode|capitalize }}</strong></div></div>
+  <div class="foci-result"><strong>FOCI cache state:</strong> {% if data.foci_detected %}Family-token metadata detected{% else %}No family-token metadata detected{% endif %}. Cross-client and cross-resource acquisition is still subject to MSAL, the token cache, tenant policy and the target client's consent.</div>
+  {% if data.same_token %}<div class="notice warning" style="margin-top:14px">MSAL returned the same access-token value. This is not necessarily a failure; the provider/cache may reuse the current token.</div>{% else %}<div class="notice success" style="margin-top:14px">A different access-token value was returned for the selected client.</div>{% endif %}
+  <div class="code-panel" style="margin-top:14px"><div class="code-toolbar"><span>New access token</span><button type="button" data-copy="#newAccessToken">Copy</button></div><pre id="newAccessToken" class="secret" style="max-height:180px">{{ data.new_access_token }}</pre></div>
+{% else %}<div class="notice {% if data.status == 'error' %}error{% else %}info{% endif %}">{{ data.message }}</div>{% endif %}
+</div></section>
+
+<div class="notice info" style="margin-top:14px"><strong>FOCI reference:</strong> FOCI status shown above is a research/reference classification, not a Microsoft guarantee. <a href="https://entrascopes.com/?foci=true" target="_blank" rel="noopener noreferrer">View EntraScopes FOCI reference</a>.</div>
+<script>
+(() => {
+  const form = document.getElementById('refreshForm');
+  const groups = [
+    {selector: '.client-choice', name: 'target_client'},
+    {selector: '.resource-choice', name: 'target_resource'}
+  ];
+  groups.forEach(({selector, name}) => {
+    const cards = [...document.querySelectorAll(selector)];
+    const sync = () => cards.forEach(card => {
+      const input = card.querySelector(`input[name="${name}"]`);
+      card.classList.toggle('selected', Boolean(input?.checked));
+    });
+    cards.forEach(card => {
+      const input = card.querySelector(`input[name="${name}"]`);
+      card.addEventListener('click', event => {
+        if (event.target === input) { sync(); return; }
+        if (!input) return;
+        input.checked = true;
+        input.dispatchEvent(new Event('change', {bubbles:true}));
+      });
+      input?.addEventListener('change', sync);
+    });
+    sync();
+  });
+  form?.addEventListener('submit', () => {
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) { submit.disabled = true; submit.textContent = 'Refreshing…'; }
+  });
+})();
+</script>
+{% endblock %}

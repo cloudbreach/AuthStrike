@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}{% if history_only %}History{% else %}Dashboard{% endif %} · AuthStrike{% endblock %}
+{% block breadcrumb %}{% if history_only %}History{% else %}Dashboard{% endif %}{% endblock %}
+{% block content %}
+{% if history_only %}
+<div class="page-heading history-heading">
+  <div>
+    <div class="eyebrow">Operations / History</div>
+    <h1>History</h1>
+    <p>Review operation outcomes and open the original operation when you need the full context.</p>
+  </div>
+  <div class="action-row"><a class="button button-primary" href="{{ url_for('d') }}">＋ New operation</a></div>
+</div>
+
+<section class="card history-toolbar-card">
+  <div class="card-body history-toolbar">
+    <div class="history-summary"><strong>{{ device_history|length }}</strong><span>operations</span></div>
+    <label class="history-search" aria-label="Search history">
+      <span>⌕</span>
+      <input class="input" id="historySearch" type="search" placeholder="Search by ID, client, or account…" autocomplete="off">
+    </label>
+    <select class="select history-filter" id="historyStatus" aria-label="Filter history by status">
+      <option value="ALL">All statuses</option>
+      <option value="SUCCESS">Success</option>
+      <option value="POLLING">Polling</option>
+      <option value="EXPIRED">Expired</option>
+      <option value="INTERRUPTED">Interrupted</option>
+      <option value="FAILED">Failed</option>
+    </select>
+  </div>
+</section>
+
+<section class="card" style="margin-top:12px">
+  <div class="card-header">
+    <div><div class="card-title">Operations</div><div class="card-subtitle">Latest first.</div></div>
+    <span class="badge badge-info" id="historyVisibleCount">{{ device_history|length }} shown</span>
+  </div>
+  <div class="data-table-wrap">
+    <table class="data-table history-table" id="historyTable">
+      <thead><tr><th>ID</th><th>Client</th><th>Account</th><th>Created</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for item in device_history|reverse %}
+        {% set status = item.status or 'POLLING' %}
+        <tr data-status="{{ status }}" data-search="{{ (item.id|string ~ ' ' ~ (item.client_name or item.client_id or '') ~ ' ' ~ (item.username or ''))|lower }}">
+          <td><a class="table-link-strong" href="{{ url_for('d', operation_id=item.id) }}">#{{ item.id }}</a></td>
+          <td><span class="table-primary">{{ item.client_name or item.client_id or 'Unknown client' }}</span></td>
+          <td>{{ item.username or '—' }}</td>
+          <td><span class="mono-muted">{{ item.generated_at or '—' }}</span></td>
+          <td><span class="badge {% if status == 'SUCCESS' %}badge-success{% elif status in ['FAILED','EXPIRED','INTERRUPTED'] %}badge-error{% elif status == 'POLLING' %}badge-warning{% else %}badge-info{% endif %}">{{ status }}</span></td>
+          <td><a class="button button-ghost button-small" href="{{ url_for('d', operation_id=item.id) }}">Open</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6"><div class="empty-state"><strong>No operations yet</strong><span>Operations will appear here after a campaign is created.</span></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="empty-state" id="historyNoMatches" style="display:none"><strong>No matching operations</strong><span>Try another search term or status filter.</span></div>
+  </div>
+</section>
+
+<details class="history-details token-archive-details" style="margin-top:12px">
+  <summary>Token archive <span class="details-count">{{ token_history|length }}</span></summary>
+  <div class="card" style="margin-top:10px;box-shadow:none">
+    <div class="data-table-wrap">
+      <table class="data-table"><thead><tr><th>Captured</th><th>Operation</th><th>Account</th><th>Client</th></tr></thead>
+      <tbody>
+      {% for item in token_history|reverse %}
+        <tr><td><span class="mono-muted">{{ item.captured_at or '—' }}</span></td><td>#{{ item.operation_id or '—' }}</td><td>{{ item.username or '—' }}</td><td>{{ item.client_name or item.client_id or '—' }}</td></tr>
+      {% else %}<tr><td colspan="4"><div class="empty-state"><strong>No token archive</strong><span>Captured token records will appear here.</span></div></td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+</details>
+{% else %}
+<div class="page-heading dashboard-heading">
+  <div>
+    <div class="eyebrow">Operator workspace</div>
+    <h1>Security testing workspace</h1>
+    <p>See what needs attention now, then jump directly into the relevant operation or security artifact.</p>
+  </div>
+  <div class="action-row"><a class="button button-secondary" href="{{ url_for('history') }}">View history</a><a class="button button-primary" href="{{ url_for('d') }}">＋ New operation</a></div>
+</div>
+
+<section class="attention-strip">
+  <div class="attention-copy"><span class="status-dot online"></span><div><strong>Operator workspace ready</strong><span>Public campaign activity and successful authentications surface here automatically.</span></div></div>
+  <div class="attention-actions"><a class="button button-secondary button-small" href="{{ url_for('t') }}">Open tokens</a><a class="button button-secondary button-small" href="{{ url_for('outlook_page') }}">Outlook validation</a></div>
+</section>
+
+<div class="dashboard-metrics">
+  <a class="metric-card-link" href="{{ url_for('history') }}">
+    <div class="card metric-card"><div class="metric-label">Active operations</div><div class="metric-value">{{ active_operations|length }}</div><div class="metric-meta">{% if active_operations|length %}Awaiting authentication{% else %}Nothing currently polling{% endif %}</div></div>
+  </a>
+  <a class="metric-card-link" href="{{ url_for('history') }}">
+    <div class="card metric-card"><div class="metric-label">Total operations</div><div class="metric-value">{{ device_history|length }}</div><div class="metric-meta">All operation outcomes</div></div>
+  </a>
+  <a class="metric-card-link" href="{{ url_for('t') }}">
+    <div class="card metric-card"><div class="metric-label">Active tokens</div><div class="metric-value">{{ active_token_count|default(0) }}</div><div class="metric-meta">Currently within lifetime</div></div>
+  </a>
+  <a class="metric-card-link" href="{{ url_for('me') }}">
+    <div class="card metric-card"><div class="metric-label">Accounts</div><div class="metric-value">—</div><div class="metric-meta">Active account records</div></div>
+  </a>
+</div>
+
+<div class="dashboard-grid">
+  <section class="card priority-card">
+    <div class="card-header"><div><div class="card-title">Needs attention</div><div class="card-subtitle">The fastest path to the work that matters now.</div></div></div>
+    <div class="card-body">
+      {% if active_operations %}
+        <div class="attention-list">
+        {% for item in active_operations|reverse %}
+          <a class="attention-item" href="{{ url_for('d', operation_id=item.id) }}">
+            <span class="attention-icon warning">!</span>
+            <span class="attention-main"><strong>#{{ item.id }} · {{ item.client_name or item.client_id or 'Unknown client' }}</strong><small>Waiting for authentication{% if item.generated_at %} · started {{ item.generated_at }}{% endif %}</small></span>
+            <span class="attention-arrow">›</span>
+          </a>
+        {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state compact-empty"><strong>No operation needs attention</strong><span>Create a campaign when you are ready to test a participant.</span><a class="button button-primary button-small" style="margin-top:12px" href="{{ url_for('d') }}">＋ New operation</a></div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card latest-card">
+    <div class="card-header"><div><div class="card-title">Latest successful access</div><div class="card-subtitle">Most recent captured token.</div></div><a class="button button-ghost button-small" href="{{ url_for('t') }}">Tokens</a></div>
+    <div class="card-body">
+      {% if latest_token %}
+        <div class="identity-summary"><div class="identity-avatar">{{ (latest_token.username or 'U')[:1]|upper }}</div><div><strong>{{ latest_token.username or 'Unknown account' }}</strong><span>{{ latest_token.client_name or latest_token.client_id or 'Unknown client' }}</span></div></div>
+        <div class="stat-row compact-stats"><div class="stat-box"><span>Captured</span><strong>{{ latest_token.captured_at or '—' }}</strong></div><div class="stat-box"><span>Operation</span><strong>#{{ latest_token.operation_id or '—' }}</strong></div></div>
+        <div class="action-row" style="margin-top:12px"><a class="button button-primary button-small" href="{{ url_for('t', operation_id=latest_token.operation_id) if latest_token.operation_id else url_for('t') }}">Inspect token</a><a class="button button-secondary button-small" href="{{ url_for('me', operation_id=latest_token.operation_id) if latest_token.operation_id else url_for('me') }}">View account</a></div>
+      {% else %}
+        <div class="empty-state compact-empty"><strong>No successful authentication yet</strong><span>Successful access will appear here when the first token is captured.</span></div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<section class="card" style="margin-top:14px">
+  <div class="card-header"><div><div class="card-title">Recent activity</div><div class="card-subtitle">A concise view of the latest state changes.</div></div><a class="button button-ghost button-small" href="{{ url_for('history') }}">All history</a></div>
+  <div class="card-body">
+    {% if recent_activity %}
+      <ul class="activity-list">
+      {% for event in recent_activity %}
+        <li><span class="activity-state"><span class="status-dot {% if event.status == 'SUCCESS' %}online{% endif %}"></span></span><span class="activity-time">{{ event.time }}</span><span class="activity-text">{{ event.text }}</span><span class="badge {% if event.status == 'SUCCESS' %}badge-success{% elif event.status in ['FAILED','EXPIRED','INTERRUPTED'] %}badge-error{% else %}badge-warning{% endif %}">{{ event.status }}</span></li>
+      {% endfor %}
+      </ul>
+    {% else %}<div class="empty-state compact-empty"><strong>No recent activity</strong></div>{% endif %}
+  </div>
+</section>
+{% endif %}
+<div class="page-footer-note">Use AuthStrike only in environments and accounts where you have explicit authorization to test. Sensitive authentication artifacts should be handled as secrets.</div>
+{% endblock %}
+{% block scripts %}
+{% if history_only %}
+<script>
+(function(){
+  const search = document.getElementById('historySearch');
+  const status = document.getElementById('historyStatus');
+  const rows = Array.from(document.querySelectorAll('#historyTable tbody tr[data-search]'));
+  const count = document.getElementById('historyVisibleCount');
+  const noMatches = document.getElementById('historyNoMatches');
+  function apply(){
+    const term = (search.value || '').trim().toLowerCase();
+    const filter = status.value;
+    let visible = 0;
+    rows.forEach(row => {
+      const matchesSearch = !term || row.dataset.search.includes(term);
+      const matchesStatus = filter === 'ALL' || row.dataset.status === filter;
+      const show = matchesSearch && matchesStatus;
+      row.style.display = show ? '' : 'none';
+      if(show) visible++;
+    });
+    count.textContent = visible + ' shown';
+    noMatches.style.display = rows.length && visible === 0 ? 'block' : 'none';
+  }
+  search.addEventListener('input', apply);
+  status.addEventListener('change', apply);
+})();
+</script>
+{% endif %}
+{% endblock %}

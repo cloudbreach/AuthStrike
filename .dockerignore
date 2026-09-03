@@ -1,0 +1,12 @@
+.env
+*.log
+__pycache__/
+*.py[cod]
+.venv/
+request_counter.json
+devicecode_history.json
+token_history.json
+token_cache.bin
+.git/
+.gitignore
+runtime/

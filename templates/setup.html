@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Configuration · AuthStrike{% endblock %}
+{% block breadcrumb %}Configuration{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><div class="eyebrow">System / Configuration</div><h1>Client configuration</h1><p>Choose which Microsoft public client each workflow should use. These are public application IDs, not secrets.</p></div>
+</div>
+{% if saved %}<div class="notice success" style="margin-bottom:14px">Client configuration saved for this operator session.</div>{% endif %}
+{% if error %}<div class="notice error" style="margin-bottom:14px">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ url_for('setup') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <section class="card">
+    <div class="card-header"><div><div class="card-title">Default client for new operations</div><div class="card-subtitle">This is preselected when you open Operations → New operation.</div></div></div>
+    <div class="card-body">
+      <div class="client-select-list">
+      {% for profile in client_profiles %}
+        <label class="client-row {% if profile.key == default_profile %}selected{% endif %}">
+          <input type="radio" name="default_client_profile" value="{{ profile.key }}" {% if profile.key == default_profile %}checked{% endif %}>
+          <span><strong>{{ profile.name }}</strong><small>{{ profile.description }}</small><code>{{ profile.id }}</code></span>
+        </label>
+      {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div class="card-header"><div><div class="card-title">Template client mapping</div><div class="card-subtitle">This restores the original per-template client selection you used before the redesign.</div></div></div>
+    <div class="data-table-wrap">
+      <table class="data-table client-config-table">
+        <thead><tr><th>Template</th><th>Client ID</th><th>Purpose</th></tr></thead>
+        <tbody>
+          {% set template_rows = [
+            ('validation','/validation','DocuSign'),
+            ('adobe','/adobe-simulation','Adobe'),
+            ('outlook','/outlook-simulation','Outlook')
+          ] %}
+          {% for key,path,label in template_rows %}
+          <tr>
+            <td><strong>{{ label }}</strong><small class="table-secondary">{{ path }}</small></td>
+            <td>
+              <select class="select" name="client_{{ key }}">
+                {% for profile in client_profiles %}<option value="{{ profile.key }}" {% if template_clients.get(key) == profile.key %}selected{% endif %}>{{ profile.name }}</option>{% endfor %}
+              </select>
+            </td>
+            <td class="table-secondary">{{ key|capitalize }} workflow</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="action-row" style="margin-top:14px">
+    <button class="button button-primary" type="submit">Save client configuration</button>
+    <a class="button button-secondary" href="{{ url_for('d') }}">Continue to new operation</a>
+  </div>
+</form>
+
+<section class="card" style="margin-top:14px">
+  <div class="card-header"><div><div class="card-title">Reset workspace data</div><div class="card-subtitle">Deletes operation history, token history and operation MSAL caches. Client configuration is preserved.</div></div></div>
+  <div class="card-body">
+    {% if reset_done %}<div class="notice success">Workspace operation and token data were reset.</div>{% endif %}
+    {% if reset_error %}<div class="notice error">{{ reset_error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('reset_workspace') }}" onsubmit="return confirm('Reset all operation history, token history and operation caches? This cannot be undone.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-field"><label for="confirmation">Type RESET to confirm</label><input class="input" id="confirmation" name="confirmation" autocomplete="off" placeholder="RESET" required></div>
+      <button class="button button-danger" type="submit">Reset workspace data</button>
+    </form>
+  </div>
+</section>
+
+<div class="notice info" style="margin-top:14px"><strong>Recommended workflow:</strong> Configure your clients once → open Templates to launch a campaign → use New operation when you intentionally want to create a device-code flow → monitor that operation until it completes.</div>
+{% endblock %}

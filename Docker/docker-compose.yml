@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile
+    ports:
+      - "5000:5000"
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    volumes:
+      - authstrike_runtime:/app/runtime
+
+volumes:
+  authstrike_runtime:

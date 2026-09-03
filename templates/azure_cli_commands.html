@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Azure CLI commands · AuthStrike{% endblock %}
+{% block breadcrumb %}Azure CLI commands{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Identity / Azure CLI</div>
+    <h1>Azure CLI commands</h1>
+    <p>Use an active non-Broker access token to run read-only Microsoft Graph queries for Entra ID users and groups.</p>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Select an active token</div>
+      <div class="card-subtitle">Microsoft Authentication Broker tokens are intentionally excluded from this tool.</div>
+    </div>
+    <span class="badge badge-info">{{ token_records|length }} available</span>
+  </div>
+  <div class="card-body">
+    <div class="form-field">
+      <label for="azureTokenSelector">Operation / token</label>
+      <select class="select" id="azureTokenSelector">
+        <option value="">Select a token…</option>
+        {% for item in token_records %}
+        <option value="{{ item.history_index }}" {% if item.history_index == selected_token_index %}selected{% endif %}>#{{ item.operation_id }} · {{ item.username }} · {{ item.client_name }} · {{ item.resource_name }} · {{ item.captured_at }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</section>
+
+{% if selected_token %}
+<section class="card" style="margin-top:14px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Read-only directory commands</div>
+      <div class="card-subtitle">The commands below query only Entra ID users and groups through Microsoft Graph.</div>
+    </div>
+    {% if selected_token.audience == 'https://graph.microsoft.com' or selected_token.audience == '00000003-0000-0000-c000-000000000000' %}
+      <span class="badge badge-success">GRAPH TOKEN</span>
+    {% else %}
+      <span class="badge badge-warning">CHECK AUDIENCE</span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <div class="stat-row">
+      <div class="stat-box"><span>Account</span><strong>{{ selected_token.username }}</strong></div>
+      <div class="stat-box"><span>Client</span><strong>{{ selected_token.client_name }}</strong></div>
+      <div class="stat-box"><span>Resource</span><strong>{{ selected_token.resource_name }}</strong></div>
+      <div class="stat-box"><span>Audience</span><strong>{{ selected_token.audience or 'Not available' }}</strong></div>
+    </div>
+
+    {% if selected_token.error %}
+      <div class="notice error" style="margin-top:14px">{{ selected_token.error }}</div>
+    {% elif selected_token.audience and selected_token.audience not in ['https://graph.microsoft.com', '00000003-0000-0000-c000-000000000000'] %}
+      <div class="notice warning" style="margin-top:14px"><strong>Audience mismatch:</strong> this token is not identified as a Microsoft Graph token. The commands below are provided because the selected token is active, but Microsoft Graph will reject a token issued for another resource.</div>
+    {% endif %}
+
+    <div class="notice warning" style="margin-top:14px"><strong>Credential warning:</strong> the commands contain an access token. Use them only in your authorized test environment and avoid shell history or shared terminals.</div>
+
+    <div class="code-panel" style="margin-top:14px">
+      <div class="code-toolbar"><span>Azure CLI · List Entra users</span><button type="button" data-copy="#azUsers">Copy</button></div>
+      <pre id="azUsers" class="secret">{{ selected_token.powershell_token }}
+{{ selected_token.bash_users_command }}</pre>
+    </div>
+    <div class="code-panel" style="margin-top:14px">
+      <div class="code-toolbar"><span>Azure CLI · List Entra groups</span><button type="button" data-copy="#azGroups">Copy</button></div>
+      <pre id="azGroups" class="secret">{{ selected_token.powershell_token }}
+{{ selected_token.bash_groups_command }}</pre>
+    </div>
+    <div class="code-panel" style="margin-top:14px">
+      <div class="code-toolbar"><span>PowerShell · List Entra users</span><button type="button" data-copy="#psUsers">Copy</button></div>
+      <pre id="psUsers" class="secret">{{ selected_token.powershell_token }}
+{{ selected_token.powershell_headers }}
+{{ selected_token.powershell_users_command }}</pre>
+    </div>
+    <div class="code-panel" style="margin-top:14px">
+      <div class="code-toolbar"><span>PowerShell · List Entra groups</span><button type="button" data-copy="#psGroups">Copy</button></div>
+      <pre id="psGroups" class="secret">{{ selected_token.powershell_token }}
+{{ selected_token.powershell_headers }}
+{{ selected_token.powershell_groups_command }}</pre>
+    </div>
+    <div class="notice info" style="margin-top:14px">These commands are intentionally read-only and query only <code>/users</code> and <code>/groups</code>. The selected token must have the required Microsoft Graph directory permissions.</div>
+  </div>
+</section>
+{% elif token_records %}
+<section class="card" style="margin-top:14px"><div class="card-body"><div class="notice info">Select an active non-Broker token above to prepare the commands.</div></div></section>
+{% else %}
+<section class="card" style="margin-top:14px"><div class="card-body"><div class="notice info">No active non-Broker access tokens are currently available.</div></div></section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const selector = document.getElementById('azureTokenSelector');
+  if (!selector) return;
+  selector.addEventListener('change', () => {
+    const value = selector.value;
+    window.location.href = value ? `{{ url_for('azure_cli_commands') }}?token_index=${encodeURIComponent(value)}` : `{{ url_for('azure_cli_commands') }}`;
+  });
+})();
+</script>
+{% endblock %}

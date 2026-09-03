@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08111d">
+  <meta name="description" content="AuthStrike — Identity Attack Simulation & Security Testing">
+  <title>{% block title %}AuthStrike{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='AuthStrike.png') }}" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='operator.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="operator-body">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-lockup">
+        <div class="brand-logo-panel">
+          <img src="{{ url_for('static', filename='AuthStrike-wordmark.png') }}" alt="AuthStrike — Identity Attack Simulation & Security Testing" class="brand-wordmark">
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+          <span class="nav-icon">⌂</span><span>Dashboard</span>
+        </a>
+
+        <div class="nav-section-label">Operations</div>
+        <a class="nav-link nav-link-strong {% if request.endpoint == 'd' %}active{% endif %}" href="{{ url_for('d') }}">
+          <span class="nav-icon">＋</span><span>New operation</span>
+        </a>
+        <a class="nav-link {% if request.endpoint == 'history' %}active{% endif %}" href="{{ url_for('history') }}">
+          <span class="nav-icon">◷</span><span>History</span>
+        </a>
+
+        <div class="nav-section-label">Identity</div>
+        <a class="nav-link {% if request.endpoint == 't' %}active{% endif %}" href="{{ url_for('t') }}">
+          <span class="nav-icon">⌁</span><span>Tokens</span>
+        </a>
+        <a class="nav-link {% if request.endpoint == 'me' %}active{% endif %}" href="{{ url_for('me') }}">
+          <span class="nav-icon">◉</span><span>Accounts</span>
+        </a>
+        <a class="nav-link {% if request.endpoint == 'r' %}active{% endif %}" href="{{ url_for('r') }}">
+          <span class="nav-icon">↻</span><span>Refresh</span>
+        </a>
+
+        <div class="nav-section-label">Identity Tools</div>
+        <a class="nav-link {% if request.endpoint == 'outlook_page' %}active{% endif %}" href="{{ url_for('outlook_page') }}">
+          <span class="nav-icon">✉</span><span>Outlook validation</span>
+        </a>
+        <a class="nav-link {% if request.endpoint == 'device_registration' %}active{% endif %}" href="{{ url_for('device_registration') }}">
+          <span class="nav-icon">▣</span><span>Device registration</span>
+        </a>
+        <a class="nav-link {% if request.endpoint == 'azure_cli_commands' %}active{% endif %}" href="{{ url_for('azure_cli_commands') }}">
+          <span class="nav-icon">$</span><span>Azure CLI commands</span>
+        </a>
+
+        <div class="nav-section-label">System</div>
+        <a class="nav-link {% if request.endpoint == 'base' %}active{% endif %}" href="{{ url_for('base') }}">
+          <span class="nav-icon">□</span><span>Templates</span>
+        </a>
+        <a class="nav-link {% if request.endpoint == 'setup' %}active{% endif %}" href="{{ url_for('setup') }}">
+          <span class="nav-icon">⚙</span><span>Configuration</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="security-note">
+          <span class="status-dot online"></span>
+          <div>
+            <strong>Operator mode</strong>
+            <small>Authorized testing workspace</small>
+          </div>
+        </div>
+        <div class="powered-by">
+          <a href="https://cloudbreach.io" target="_blank" rel="noopener noreferrer">CloudBreach ↗</a>
+        </div>
+        <form method="post" action="{{ url_for('logout') }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="nav-link nav-link-button" type="submit"><span class="nav-icon">↪</span><span>Sign out</span></button></form>
+      </div>
+    </aside>
+
+    <main class="main-panel">
+      <header class="topbar">
+        <button type="button" class="icon-button mobile-menu" id="mobileMenu" aria-label="Open navigation">☰</button>
+        <div class="breadcrumb">
+          <span>AuthStrike</span><span class="breadcrumb-separator">/</span><strong>{% block breadcrumb %}Dashboard{% endblock %}</strong>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" class="button button-secondary button-small" id="alertSettings" aria-pressed="true">Alerts on</button>
+          <a href="{{ url_for('d') }}" class="button button-primary button-small">＋ New operation</a>
+          <div class="operator-chip">
+            <span class="avatar">{{ session.get('user', 'O')[:1]|upper }}</span>
+            <span class="operator-name">{{ session.get('user', 'Operator') }}</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  <div id="operatorAlertHost" class="operator-alert-host" aria-live="polite" aria-atomic="true"></div>
+  <script src="{{ url_for('static', filename='operator.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,5 @@
+Flask
+msal
+requests
+python-dotenv
+gunicorn
